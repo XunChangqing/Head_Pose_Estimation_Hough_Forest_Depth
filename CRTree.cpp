@@ -29,6 +29,8 @@ bool CRTree::loadTree(const char* filename) {
 	treetable = new int[num_nodes * TEST_DIM];   // num_nodes x test size: [index, x1,y1,x2,y,2,w1,h1,w2,h2,channel,threshold]
 	int* ptT = &treetable[0];                    // get pointer to the tree table
 
+	cout<< "max_depth "<<max_depth << "\t patch wh "<<m_pwidth<<"\t"<<m_pheight<<"\tnum_nodes "<<num_nodes;
+
 	// get number of leaves from text file
 	leaf = new LeafNode[num_leaf];
 

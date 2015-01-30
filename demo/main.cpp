@@ -100,6 +100,8 @@ Mat g_im3D;
 //input image size
 int g_im_w = 640;
 int g_im_h = 480;
+//int g_im_w = 320;
+//int g_im_h = 240;
 //kinect's frame rate
 int g_fps = 30;
 
@@ -265,8 +267,8 @@ bool read_data( ){
 
 				valid_pixels++;
 
-				Mi[x][0] = ( float(d * (x - 320)) / f );
-				Mi[x][1] = ( float(d * (y - 240)) / f );
+				Mi[x][0] = ( float(d * (x - g_im_w/2)) / f );
+				Mi[x][1] = ( float(d * (y - g_im_h/2)) / f );
 				Mi[x][2] = d;
 
 			}

@@ -13,4 +13,4 @@ trees/tree
 #MAX_distance
 1300
 #Head_Trheshold
-500
+700

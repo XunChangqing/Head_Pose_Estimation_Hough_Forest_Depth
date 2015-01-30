@@ -112,6 +112,8 @@ void CRForestEstimator::estimate( const Mat & im3D,
     int half_w = roi.width/2;
     int half_h = roi.height/2;
 
+	int64 tick_freq = getTickFrequency();
+	int64 patch_stick = getTickCount();
     //process each patch
     for(roi.y=bbox.y; roi.y<bbox.y+bbox.height-p_height; roi.y+=stride) {
 
@@ -163,6 +165,8 @@ void CRForestEstimator::estimate( const Mat & im3D,
         } // end for x
 
     } // end for y
+	int64 patch_etick = getTickCount();
+	cout << "patch ticks: "<<1000*(patch_etick-patch_stick)/tick_freq;
 
     if(verbose)
         cout << endl << "votes : " << votes.size() << endl;
@@ -177,6 +181,7 @@ void CRForestEstimator::estimate( const Mat & im3D,
     //radius for clustering votes
     float large_radius = AVG_FACE_DIAMETER2/(larger_radius_ratio*larger_radius_ratio);
 
+	int64 cluster_stick = getTickCount();
     //cluster using the head centers
     for(unsigned int l=0;l<votes.size();++l){
 
@@ -336,5 +341,7 @@ void CRForestEstimator::estimate( const Mat & im3D,
         clusters.push_back( cluster );
 
     }
+	int64 cluster_etick = getTickCount();
+	cout<<"\tcluster_ticks: "<<1000*(cluster_etick-cluster_stick)/tick_freq<<endl;
 
 }

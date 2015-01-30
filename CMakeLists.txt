@@ -9,11 +9,16 @@ SET( 	HEAD_DEMO
 SET(CMAKE_BUILD_TYPE "Release")
 
 #modify according to your opencv installation
-SET( OPENCV_INCLUDES /include ) 
-SET( OPENCV_LIB /lib ) 
+#SET( OPENCV_INCLUDES C:\gitwork\opencv249\build\include) 
+#SET( OPENCV_LIBC C:\gitwork\opencv249\build\x86\vc11\lib) 
 
-INCLUDE_DIRECTORIES( . ${OPENCV_INCLUDES} )
-LINK_DIRECTORIES( ${OPENCV_LIB} )
+SET(OpenCV_DIR "C:\\gitwork\\opencv249\\build")
+FIND_PACKAGE(OpenCV REQUIRED NO_CMAKE_BUILDS)
+
+#INCLUDE_DIRECTORIES( . ${OPENCV_INCLUDES} )
+#LINK_DIRECTORIES( ${OPENCV_LIB} )
+INCLUDE_DIRECTORIES( . ${OpenCV_INCLUDE_DIRS} )
+LINK_DIRECTORIES( ${OpenCV_LIB_DIR} )
 
 add_executable( head_pose_estimation ${HEAD_DEMO})
 
