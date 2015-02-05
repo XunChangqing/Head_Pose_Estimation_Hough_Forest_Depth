@@ -35,16 +35,16 @@ Rect CRForestEstimator::getBoundingBox(const Mat& im3D){
 
 	for(int y = 0; y < im3D.rows; y++)
 	{
-	    const Vec3f* Mi = im3D.ptr<Vec3f>(y);
-	    for(int x = 0; x < im3D.cols; x++){
+		const Vec3f* Mi = im3D.ptr<Vec3f>(y);
+		for(int x = 0; x < im3D.cols; x++){
 
-	    	if( Mi[x][2] > 0) {
+			if( Mi[x][2] > 0) {
 
 				min_x = MIN(min_x,x); min_y = MIN(min_y,y);
 				max_x = MAX(max_x,x); max_y = MAX(max_y,y);
 			}
 
-	    }
+		}
 	}
 
 	int new_w = max_x - min_x + p_width;
@@ -61,18 +61,19 @@ Rect CRForestEstimator::getBoundingBox(const Mat& im3D){
 }
 
 void CRForestEstimator::estimate( const Mat & im3D,
-								   std::vector< cv::Vec<float,6> >& means, //output
-                                   std::vector< std::vector< Vote > >& clusters, //all clusters
-                                   std::vector< Vote >& votes, //all votes
-                                   int stride,
-                                   float max_variance,
-                                   float prob_th,
-                                   float larger_radius_ratio,
-                                   float smaller_radius_ratio,
-                                   bool verbose , int threshold ){
+	std::vector< cv::Vec<float,6> >& means, //output
+	std::vector< std::vector< Vote > >& clusters, //all clusters
+	std::vector< Vote >& votes, //all votes
+	int stride,
+	float max_variance,
+	float prob_th,
+	float larger_radius_ratio,
+	float smaller_radius_ratio,
+	bool verbose , int threshold )
+{
 
-    unsigned int max_clusters = 20;
-    int max_ms_iterations = 10;
+	unsigned int max_clusters = 20;
+	int max_ms_iterations = 10;
 
 	int p_width = crForest->getPatchWidth();
 	int p_height = crForest->getPatchHeight();
@@ -82,7 +83,7 @@ void CRForestEstimator::estimate( const Mat & im3D,
 
 	Mat* channels = new Mat[3];
 	split(im3D, channels);
-	
+
 	//vector<Mat> channels;
 	//split(im3D, channels);
 
@@ -98,7 +99,7 @@ void CRForestEstimator::estimate( const Mat & im3D,
 	featureChans.push_back(depthInt);
 
 	//mask
-    Mat mask( rows, cols, CV_32FC1); mask.setTo(0);
+	Mat mask( rows, cols, CV_32FC1); mask.setTo(0);
 	cv::threshold( channels[2], mask, 10, 1, THRESH_BINARY);
 
 	//integral image of the mask
@@ -106,95 +107,99 @@ void CRForestEstimator::estimate( const Mat & im3D,
 	integral( mask, maskIntegral );
 
 	//defines the test patch
-    Rect roi = Rect(0,0,p_width,p_height);
+	Rect roi = Rect(0,0,p_width,p_height);
 
-    int min_no_pixels = p_width*p_height/10;
-    int half_w = roi.width/2;
-    int half_h = roi.height/2;
+	int min_no_pixels = p_width*p_height/10;
+	int half_w = roi.width/2;
+	int half_h = roi.height/2;
 
 	int64 tick_freq = getTickFrequency();
 	int64 patch_stick = getTickCount();
-    //process each patch
-    for(roi.y=bbox.y; roi.y<bbox.y+bbox.height-p_height; roi.y+=stride) {
+	int64 patches_processed = 0;
+	
+	//process each patch
+	for(roi.y=bbox.y; roi.y<bbox.y+bbox.height-p_height; roi.y+=stride) {
 
-    	float* rowX = channels[0].ptr<float>(roi.y + half_h);
-    	float* rowY = channels[1].ptr<float>(roi.y + half_h);
-    	float* rowZ = channels[2].ptr<float>(roi.y + half_h);
+		float* rowX = channels[0].ptr<float>(roi.y + half_h);
+		float* rowY = channels[1].ptr<float>(roi.y + half_h);
+		float* rowZ = channels[2].ptr<float>(roi.y + half_h);
 
-    	double* maskIntY1 = maskIntegral.ptr<double>(roi.y);
-    	double* maskIntY2 = maskIntegral.ptr<double>(roi.y + roi.height);
+		double* maskIntY1 = maskIntegral.ptr<double>(roi.y);
+		double* maskIntY2 = maskIntegral.ptr<double>(roi.y + roi.height);
 
-        for(roi.x=bbox.x; roi.x<bbox.x+bbox.width-p_width; roi.x+=stride) {
+		for(roi.x=bbox.x; roi.x<bbox.x+bbox.width-p_width; roi.x+=stride) {
 
-        	//discard if the middle of the patch does not have depth data
+			//discard if the middle of the patch does not have depth data
 			if( rowZ[roi.x + half_w] <= 0.f )
 				continue;
 
 			//discard if the patch is filled with data for less than 10%
-            if( (maskIntY1[roi.x] + maskIntY2[roi.x + roi.width] - maskIntY1[roi.x + roi.width] - maskIntY2[roi.x]) <= min_no_pixels )
-               continue;
+			if( (maskIntY1[roi.x] + maskIntY2[roi.x + roi.width] - maskIntY1[roi.x + roi.width] - maskIntY2[roi.x]) <= min_no_pixels )
+				continue;
+			
+			patches_processed++;
 
-            //send the patch down the trees and retrieve leaves
-            std::vector< const LeafNode* > leaves = crForest->regressionIntegral( featureChans, maskIntegral, roi );
+			//send the patch down the trees and retrieve leaves
+			std::vector< const LeafNode* > leaves = crForest->regressionIntegral( featureChans, maskIntegral, roi );
 
-            //go through the results
-            for(unsigned int t=0;t<leaves.size();++t){
+			//go through the results
+			for(unsigned int t=0;t<leaves.size();++t){
 
-            	//discard bad votes
-                if ( leaves[t]->pfg < prob_th || leaves[t]->trace > max_variance )
-                    continue;
+				//discard bad votes
+				if ( leaves[t]->pfg < prob_th || leaves[t]->trace > max_variance )
+					continue;
 
-                Vote v;
+				Vote v;
 
-                //add the 3D location under the patch center to the vote for the head center
-                v.vote[0] = leaves[t]->mean.at<float>(0) + rowX[roi.x + half_w];
-                v.vote[1] = leaves[t]->mean.at<float>(1) + rowY[roi.x + half_w];
-                v.vote[2] = leaves[t]->mean.at<float>(2) + rowZ[roi.x + half_w];
+				//add the 3D location under the patch center to the vote for the head center
+				v.vote[0] = leaves[t]->mean.at<float>(0) + rowX[roi.x + half_w];
+				v.vote[1] = leaves[t]->mean.at<float>(1) + rowY[roi.x + half_w];
+				v.vote[2] = leaves[t]->mean.at<float>(2) + rowZ[roi.x + half_w];
 
-                //angles, leave as in the leaf
-                v.vote[3] = leaves[t]->mean.at<float>(3);
-                v.vote[4] = leaves[t]->mean.at<float>(4);
-                v.vote[5] = leaves[t]->mean.at<float>(5);
+				//angles, leave as in the leaf
+				v.vote[3] = leaves[t]->mean.at<float>(3);
+				v.vote[4] = leaves[t]->mean.at<float>(4);
+				v.vote[5] = leaves[t]->mean.at<float>(5);
 
-                v.trace = &(leaves[t]->trace);
-                v.conf = &(leaves[t]->pfg);
+				v.trace = &(leaves[t]->trace);
+				v.conf = &(leaves[t]->pfg);
 
-                votes.push_back(v);
-            }
+				votes.push_back(v);
+			}
 
-        } // end for x
+		} // end for x
 
-    } // end for y
+	} // end for y
 	int64 patch_etick = getTickCount();
-	cout << "patch ticks: "<<1000*(patch_etick-patch_stick)/tick_freq;
+	cout << "patch times: "<<1000*(patch_etick-patch_stick)/tick_freq<<"\tpatches_prcessed: "<<patches_processed;
 
-    if(verbose)
-        cout << endl << "votes : " << votes.size() << endl;
+	if(verbose)
+		cout << endl << "votes : " << votes.size() << endl;
 
 	delete [] channels;
 
 
-    Vec<float,POSE_SIZE> temp_mean;
-    vector< vector< Vote* > > temp_clusters;
-    vector< Vec<float,POSE_SIZE> > cluster_means;
+	Vec<float,POSE_SIZE> temp_mean;
+	vector< vector< Vote* > > temp_clusters;
+	vector< Vec<float,POSE_SIZE> > cluster_means;
 
-    //radius for clustering votes
-    float large_radius = AVG_FACE_DIAMETER2/(larger_radius_ratio*larger_radius_ratio);
+	//radius for clustering votes
+	float large_radius = AVG_FACE_DIAMETER2/(larger_radius_ratio*larger_radius_ratio);
 
 	int64 cluster_stick = getTickCount();
-    //cluster using the head centers
-    for(unsigned int l=0;l<votes.size();++l){
+	//cluster using the head centers
+	for(unsigned int l=0;l<votes.size();++l){
 
-        bool found = false;
-        float best_dist = FLT_MAX;
-        unsigned int best_cluster = 0;
+		bool found = false;
+		float best_dist = FLT_MAX;
+		unsigned int best_cluster = 0;
 
 		//for each cluster
 		for(unsigned int c=0; ( c<cluster_means.size() && found==false ); ++c){
 
 			float norm = 0;
 			for(int n=0;n<3;++n)
-			    norm += (votes[l].vote[n]-cluster_means[c][n])*(votes[l].vote[n]-cluster_means[c][n]);
+				norm += (votes[l].vote[n]-cluster_means[c][n])*(votes[l].vote[n]-cluster_means[c][n]);
 
 			//is the offset smaller than the radius?
 			if( norm < large_radius ){
@@ -202,7 +207,7 @@ void CRForestEstimator::estimate( const Mat & im3D,
 				best_cluster = c;
 				found = true;
 
-				 //add (pointer to) vote to the closest cluster (well, actually, the first cluster found within the distance)
+				//add (pointer to) vote to the closest cluster (well, actually, the first cluster found within the distance)
 				temp_clusters[best_cluster].push_back( &(votes[l]) );
 
 				//update cluster's mean
@@ -222,125 +227,125 @@ void CRForestEstimator::estimate( const Mat & im3D,
 		}
 
 		//create a new cluster
-        if( !found && temp_clusters.size() < max_clusters ){
+		if( !found && temp_clusters.size() < max_clusters ){
 
-            vector< Vote* > new_cluster;
-            new_cluster.push_back( &(votes[l]) );
-            temp_clusters.push_back( new_cluster );
+			vector< Vote* > new_cluster;
+			new_cluster.push_back( &(votes[l]) );
+			temp_clusters.push_back( new_cluster );
 
-            Vec<float,POSE_SIZE> vote( votes[l].vote );
-            cluster_means.push_back( vote );
+			Vec<float,POSE_SIZE> vote( votes[l].vote );
+			cluster_means.push_back( vote );
 
-        }
+		}
 
-    }
+	}
 
-    if(verbose){
-        cout << cluster_means.size() << " CLUSTERS ";
-        for(unsigned int c = 0 ; c<cluster_means.size(); ++c)
-            cout << temp_clusters[c].size() << " ";
-        cout << endl;
-    }
+	if(verbose){
+		cout << cluster_means.size() << " CLUSTERS ";
+		for(unsigned int c = 0 ; c<cluster_means.size(); ++c)
+			cout << temp_clusters[c].size() << " ";
+		cout << endl;
+	}
 
-    std::vector< std::vector< Vote* > > new_clusters; //after MS
-    vector< Vec<float,POSE_SIZE> > new_means;
+	std::vector< std::vector< Vote* > > new_clusters; //after MS
+	vector< Vec<float,POSE_SIZE> > new_means;
 
-    int count = 0;
-    float ms_radius2 = AVG_FACE_DIAMETER*AVG_FACE_DIAMETER/(smaller_radius_ratio*smaller_radius_ratio);
-
-
-    //threshold defining if the cluster belongs to a head: it depends on the stride and on the number of trees
-    int th = cvRound((double)threshold*crForest->getSize()/(double)(stride*stride));
-
-    //do MS for each cluster
-    for(unsigned int c=0;c<cluster_means.size();++c){
-
-        if(verbose){
-            cout << endl << "MS cluster " << c << " : ";
-            for(int n=0;n<3;++n)
-            	cout << cluster_means[c][n] << " ";
-            cout << endl;
-        }
-
-        if ( temp_clusters[c].size() <= th ){
-            if(verbose)
-                cout << "skipping cluster " << endl;
-            continue;
-        }
+	int count = 0;
+	float ms_radius2 = AVG_FACE_DIAMETER*AVG_FACE_DIAMETER/(smaller_radius_ratio*smaller_radius_ratio);
 
 
-        vector< Vote* > new_cluster;
+	//threshold defining if the cluster belongs to a head: it depends on the stride and on the number of trees
+	int th = cvRound((double)threshold*crForest->getSize()/(double)(stride*stride));
 
-        for(unsigned int it=0; it<max_ms_iterations; ++it){
+	//do MS for each cluster
+	for(unsigned int c=0;c<cluster_means.size();++c){
 
-            count = 0;
-            temp_mean = 0;
-            new_cluster.clear();
+		if(verbose){
+			cout << endl << "MS cluster " << c << " : ";
+			for(int n=0;n<3;++n)
+				cout << cluster_means[c][n] << " ";
+			cout << endl;
+		}
 
-            //for each vote in the cluster
-            for(unsigned int idx=0; idx < temp_clusters[c].size() ;++idx){
+		if ( temp_clusters[c].size() <= th ){
+			if(verbose)
+				cout << "skipping cluster " << endl;
+			continue;
+		}
 
-            	float norm = 0;
-            	for(int n=0;n<3;++n)
-            		norm += (temp_clusters[c][idx]->vote[n]-cluster_means[c][n])*(temp_clusters[c][idx]->vote[n]-cluster_means[c][n]);
 
-                if( norm < ms_radius2 ){
+		vector< Vote* > new_cluster;
 
-                	temp_mean = temp_mean + temp_clusters[c][idx]->vote;
-                	new_cluster.push_back( temp_clusters[c][idx] );
-                    count++;
+		for(unsigned int it=0; it<max_ms_iterations; ++it){
 
-                }
+			count = 0;
+			temp_mean = 0;
+			new_cluster.clear();
 
-            }
+			//for each vote in the cluster
+			for(unsigned int idx=0; idx < temp_clusters[c].size() ;++idx){
 
-            for(int n=0;n<POSE_SIZE;++n)
-            	temp_mean[n] /= (float)MAX(1,count);
+				float norm = 0;
+				for(int n=0;n<3;++n)
+					norm += (temp_clusters[c][idx]->vote[n]-cluster_means[c][n])*(temp_clusters[c][idx]->vote[n]-cluster_means[c][n]);
 
-            float distance_to_previous_mean2 = 0;
-            for(int n=0;n<3;++n){
-            	distance_to_previous_mean2 += (temp_mean[n]-cluster_means[c][n])*(temp_mean[n]-cluster_means[c][n]);
-            }
+				if( norm < ms_radius2 ){
 
-            //cout << it << " " << distance_to_previous_mean2 << endl;
+					temp_mean = temp_mean + temp_clusters[c][idx]->vote;
+					new_cluster.push_back( temp_clusters[c][idx] );
+					count++;
 
-            //update the mean of the cluster
+				}
+
+			}
+
+			for(int n=0;n<POSE_SIZE;++n)
+				temp_mean[n] /= (float)MAX(1,count);
+
+			float distance_to_previous_mean2 = 0;
+			for(int n=0;n<3;++n){
+				distance_to_previous_mean2 += (temp_mean[n]-cluster_means[c][n])*(temp_mean[n]-cluster_means[c][n]);
+			}
+
+			//cout << it << " " << distance_to_previous_mean2 << endl;
+
+			//update the mean of the cluster
 			cluster_means[c] = temp_mean;
 
-            if( distance_to_previous_mean2 < 1 )
-            	break;
+			if( distance_to_previous_mean2 < 1 )
+				break;
 
-        }
+		}
 
 		new_clusters.push_back( new_cluster );
 		new_means.push_back( cluster_means[c] );
 
-    }
+	}
 
-    for(unsigned int c=0; c < new_clusters.size() ;++c){
+	for(unsigned int c=0; c < new_clusters.size() ;++c){
 
-        if( new_clusters[c].size() < th ) //discard clusters with not enough votes
-            continue;
+		if( new_clusters[c].size() < th ) //discard clusters with not enough votes
+			continue;
 
-        vector< Vote > cluster;
-        cluster_means[c] = 0;
+		vector< Vote > cluster;
+		cluster_means[c] = 0;
 
-        //for each vote in the cluster
-        for(unsigned int k=0; k < new_clusters[c].size(); k++ ){
+		//for each vote in the cluster
+		for(unsigned int k=0; k < new_clusters[c].size(); k++ ){
 
-        	cluster_means[c] = cluster_means[c] + new_clusters[c][k]->vote;
-        	cluster.push_back( *(new_clusters[c][k]) );
+			cluster_means[c] = cluster_means[c] + new_clusters[c][k]->vote;
+			cluster.push_back( *(new_clusters[c][k]) );
 
-        }
+		}
 
-        float div = (float)MAX(1,new_clusters[c].size());
-        for(int n=0;n<POSE_SIZE;++n)
-        	cluster_means[c][n] /= div;
+		float div = (float)MAX(1,new_clusters[c].size());
+		for(int n=0;n<POSE_SIZE;++n)
+			cluster_means[c][n] /= div;
 
-        means.push_back( cluster_means[c] );
-        clusters.push_back( cluster );
+		means.push_back( cluster_means[c] );
+		clusters.push_back( cluster );
 
-    }
+	}
 	int64 cluster_etick = getTickCount();
 	cout<<"\tcluster_ticks: "<<1000*(cluster_etick-cluster_stick)/tick_freq<<endl;
 

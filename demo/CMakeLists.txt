@@ -9,7 +9,7 @@ SET( 	HEAD_DEMO
 
 SET(CMAKE_BUILD_TYPE "Release")
 
-SET(OpenCV_DIR "C:\\gitwork\\opencv249\\build")
+SET(OpenCV_DIR "C:/Users/xcq/gitwork/opencv2410/build")
 FIND_PACKAGE(OpenCV REQUIRED NO_CMAKE_BUILDS_PATH)
 IF(WIN32)
 
@@ -19,7 +19,7 @@ IF(WIN32)
 	SET( OPENNI_INCLUDES "C:\\Program Files (x86)\\OpenNI\\Include") 
 	SET( OPENNI_LIB "C:\\Program Files (x86)\\OpenNI\\Lib") 
 
-	SET( FREEGLUT_LIB C:\\gitwork\\freeglut\\lib) 
+	SET( FREEGLUT_LIB "C:/Program Files (x86)/freeglut/lib") 
 	LINK_DIRECTORIES( ${OPENNI_LIB} ${FREEGLUT_LIB} )
 
 

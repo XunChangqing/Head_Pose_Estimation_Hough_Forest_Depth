@@ -12,7 +12,7 @@ SET(CMAKE_BUILD_TYPE "Release")
 #SET( OPENCV_INCLUDES C:\gitwork\opencv249\build\include) 
 #SET( OPENCV_LIBC C:\gitwork\opencv249\build\x86\vc11\lib) 
 
-SET(OpenCV_DIR "C:\\gitwork\\opencv249\\build")
+SET(OpenCV_DIR "C:/Users/xcq/gitwork/opencv2410/build")
 FIND_PACKAGE(OpenCV REQUIRED NO_CMAKE_BUILDS_PATH)
 
 #INCLUDE_DIRECTORIES( . ${OPENCV_INCLUDES} )
